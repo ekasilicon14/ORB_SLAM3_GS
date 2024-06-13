@@ -139,6 +139,7 @@ public:
     Frame mLastFrame;
 
     cv::Mat mImGray;
+    cv::Mat mImRaw;
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
@@ -150,6 +151,8 @@ public:
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation
     list<Sophus::SE3f> mlRelativeFramePoses;
+    list<std::string> mlRelativeFrameNames;
+    list<long unsigned int> mlRelativeFrameID;
     list<KeyFrame*> mlpReferences;
     list<double> mlFrameTimes;
     list<bool> mlbLost;
@@ -368,6 +371,7 @@ protected:
 
 public:
     cv::Mat mImRight;
+    cv::Mat mImRawRight;
 };
 
 } //namespace ORB_SLAM

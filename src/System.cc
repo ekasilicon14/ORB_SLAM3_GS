@@ -821,7 +821,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, Map* pMap)
 
 
     for(auto lit=mpTracker->mlRelativeFramePoses.begin(),
-        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
+        lend=mpTracker->mlRelativeFramePoses.end(); lit!=lend; lit++, lRit++, lT++, lbL++)
     {
         //cout << "1" << endl;
         if(*lbL)
@@ -1145,6 +1145,427 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, Map* pMap)
             Eigen::Quaternionf q = Twc.unit_quaternion();
             Eigen::Vector3f t = Twc.translation();
             f << setprecision(6) << 1e9*pKF->mTimeStamp << " " <<  setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+        }
+    }
+    f.close();
+}
+
+void System::SaveKeyFrameTrajectoryColmap(const string &filename)
+{
+    cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
+
+    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    Map* pBiggerMap;
+    int numMaxKFs = 0;
+    for(Map* pMap :vpMaps)
+    {
+        if(pMap && pMap->GetAllKeyFrames().size() > numMaxKFs)
+        {
+            numMaxKFs = pMap->GetAllKeyFrames().size();
+            pBiggerMap = pMap;
+        }
+    }
+
+    if(!pBiggerMap)
+    {
+        std::cout << "There is not a map!!" << std::endl;
+        return;
+    }
+
+    vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    for(size_t i=0; i<vpKFs.size(); i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+
+       // pKF->SetPose(pKF->GetPose()*Two);
+
+        if(!pKF || pKF->isBad())
+            continue;
+        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor==IMU_RGBD)
+        {
+            Sophus::SE3f Twb = pKF->GetImuPose();
+
+            // Convert from CV frame to graphics frame
+            Sophus::SO3f camToColMap = Twb.so3();
+            Eigen::Matrix<float, 3, 3> R_cv = camToColMap.matrix().transpose();
+            R_cv = R_cv*Eigen::DiagonalMatrix<float, 3>(1, -1, -1);
+            Eigen::Matrix<float, 3, 1> T_o(Twb.translation().x(), -Twb.translation().y(), -Twb.translation().z());
+
+            // T_w = -R_c^t * T_c
+            Sophus::SO3f camToColMap_final = Sophus::SO3f(R_cv);
+            Eigen::Matrix<float, 3, 1> T_c = -R_cv*T_o;
+
+            Eigen::Quaternionf q = camToColMap_final.unit_quaternion();
+
+            f << std::fixed << pKF->mnFrameId <<
+                " " << q.w() <<
+                " " << q.x() <<
+                " " << q.y() <<
+                " " << q.z() <<
+                " " << T_c[0] <<
+                " " << T_c[1] <<
+                " " << T_c[2] << 
+                " 1 " << pKF->mNameFile << "\n";
+            f << "0 0 -1\n";
+        }
+        else
+        {
+            Sophus::SE3f Twc = pKF->GetPoseInverse();
+                        // Convert from CV frame to graphics frame
+            Sophus::SO3f camToColMap = Twc.so3();
+            Eigen::Matrix<float, 3, 3> R_cv = camToColMap.matrix().transpose();
+            R_cv = R_cv*Eigen::DiagonalMatrix<float, 3>(1, -1, -1);
+            Eigen::Matrix<float, 3, 1> T_o(Twc.translation().x(), -Twc.translation().y(), -Twc.translation().z());
+
+            // T_w = -R_c^t * T_c
+            Sophus::SO3f camToColMap_final = Sophus::SO3f(R_cv);
+            Eigen::Matrix<float, 3, 1> T_c = -R_cv*T_o;
+
+            Eigen::Quaternionf q = camToColMap_final.unit_quaternion();
+
+            f << std::fixed << pKF->mnFrameId <<
+                " " << q.w() <<
+                " " << q.x() <<
+                " " << q.y() <<
+                " " << q.z() <<
+                " " << T_c[0] <<
+                " " << T_c[1] <<
+                " " << T_c[2] << 
+                " 1 " << pKF->mNameFile << "\n";
+            f << "0 0 -1\n";        
+        }
+    }
+    f.close();
+}
+
+void System::SaveTrajectoryComap(const string &filename)
+{
+
+    cout << endl << "Saving trajectory to " << filename << " ..." << endl;
+
+    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    int numMaxKFs = 0;
+    Map* pBiggerMap;
+    std::cout << "There are " << std::to_string(vpMaps.size()) << " maps in the atlas" << std::endl;
+    for(Map* pMap :vpMaps)
+    {
+        std::cout << "  Map " << std::to_string(pMap->GetId()) << " has " << std::to_string(pMap->GetAllKeyFrames().size()) << " KFs" << std::endl;
+        if(pMap->GetAllKeyFrames().size() > numMaxKFs)
+        {
+            numMaxKFs = pMap->GetAllKeyFrames().size();
+            pBiggerMap = pMap;
+        }
+    }
+
+    vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    Sophus::SE3f Twb; // Can be word to cam0 or world to b depending on IMU or not.
+    if (mSensor==IMU_MONOCULAR || mSensor==IMU_STEREO || mSensor==IMU_RGBD)
+        Twb = vpKFs[0]->GetImuPose();
+    else
+        Twb = vpKFs[0]->GetPoseInverse();
+
+    ofstream f;
+    f.open(filename.c_str());
+    // cout << "file open" << endl;
+    f << fixed;
+
+    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
+    // We need to get first the keyframe pose and then concatenate the relative transformation.
+    // Frames not localized (tracking failure) are not saved.
+
+    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
+    // which is true when tracking failed (lbL).
+    list<ORB_SLAM3::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<std::string>::iterator litN = mpTracker->mlRelativeFrameNames.begin();
+    list<long unsigned int>::iterator litID = mpTracker->mlRelativeFrameID.begin();
+    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
+
+    for(auto lit=mpTracker->mlRelativeFramePoses.begin(),
+        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;
+            lit++, lRit++, lT++, lbL++, litN++, litID++)
+    {
+        std::string fileName = (*litN);
+        long unsigned int Id = (*litID);
+        //cout << "1" << endl;
+        if(*lbL)
+            continue;
+
+
+        KeyFrame* pKF = *lRit;
+        //cout << "KF: " << pKF->mnId << endl;
+
+        Sophus::SE3f Trw;
+
+        // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
+        if (!pKF)
+            continue;
+
+        //cout << "2.5" << endl;
+
+        while(pKF->isBad())
+        {
+            //cout << " 2.bad" << endl;
+            Trw = Trw * pKF->mTcp;
+            pKF = pKF->GetParent();
+            //cout << "--Parent KF: " << pKF->mnId << endl;
+        }
+
+        if(!pKF || pKF->GetMap() != pBiggerMap)
+        {
+            //cout << "--Parent KF is from another map" << endl;
+            continue;
+        }
+
+        //cout << "3" << endl;
+
+        Trw = Trw * pKF->GetPose()*Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
+
+        // cout << "4" << endl;
+
+        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor==IMU_RGBD)
+        {
+            Sophus::SE3f Twb = (pKF->mImuCalib.mTbc * (*lit) * Trw).inverse();
+            // Convert from CV frame to graphics frame
+            Sophus::SO3f camToColMap = Twb.so3();
+            Eigen::Matrix<float, 3, 3> R_cv = camToColMap.matrix().transpose();
+            R_cv = R_cv*Eigen::DiagonalMatrix<float, 3>(1, -1, -1);
+            Eigen::Matrix<float, 3, 1> T_o(Twb.translation().x(), -Twb.translation().y(), -Twb.translation().z());
+
+            // T_w = -R_c^t * T_c
+            Sophus::SO3f camToColMap_final = Sophus::SO3f(R_cv);
+            Eigen::Matrix<float, 3, 1> T_c = -R_cv*T_o;
+
+            Eigen::Quaternionf q = camToColMap_final.unit_quaternion();
+
+            f << std::fixed << Id <<
+                " " << q.w() <<
+                " " << q.x() <<
+                " " << q.y() <<
+                " " << q.z() <<
+                " " << T_c[0] <<
+                " " << T_c[1] <<
+                " " << T_c[2] << 
+                " 1 " << fileName << "\n";
+            f << "0 0 -1\n";
+        }
+        else
+        {
+            Sophus::SE3f Twc = ((*lit)*Trw).inverse();
+
+            Sophus::SO3f camToColMap = Twc.so3();
+            Eigen::Matrix<float, 3, 3> R_cv = camToColMap.matrix().transpose();
+            R_cv = R_cv*Eigen::DiagonalMatrix<float, 3>(1, -1, -1);
+            Eigen::Matrix<float, 3, 1> T_o(Twc.translation().x(), -Twc.translation().y(), -Twc.translation().z());
+
+            // T_w = -R_c^t * T_c
+            Sophus::SO3f camToColMap_final = Sophus::SO3f(R_cv);
+            Eigen::Matrix<float, 3, 1> T_c = -R_cv*T_o;
+
+            Eigen::Quaternionf q = camToColMap_final.unit_quaternion();
+
+            f << std::fixed << Id <<
+                " " << q.w() <<
+                " " << q.x() <<
+                " " << q.y() <<
+                " " << q.z() <<
+                " " << T_c[0] <<
+                " " << T_c[1] <<
+                " " << T_c[2] << 
+                " 1 " << fileName << "\n";
+            f << "0 0 -1\n";        
+        }
+        // cout << "5" << endl;
+    }
+    //cout << "end saving trajectory" << endl;
+    f.close();
+    cout << endl << "End of saving trajectory to " << filename << " ..." << endl;
+}
+
+void System::SavePC(const string &filename){
+    // Code is based on MapDrawer::DrawMapPoints()
+    cout << endl << "Saving map point coordinates to " << filename << " ..." << endl;
+    cout << endl << "Number of maps is: " << mpAtlas->CountMaps() << endl;
+
+    vector<Map*> vpAllMaps = mpAtlas->GetAllMaps();
+
+    int totalpcs = 0;
+    for (size_t i = 0; i < mpAtlas->CountMaps(); i++)
+    {
+        Map* pActiveMap = vpAllMaps[i];
+        const vector<MapPoint*> &vpMPs = pActiveMap->GetAllMapPoints();
+        const vector<MapPoint*> &vpRefMPs = pActiveMap->GetReferenceMapPoints();
+         // Use a set for fast lookup of reference frames
+        set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+        for (size_t j=0, iend=vpMPs.size(); j<iend;j++)
+        {
+            if (vpMPs[j]->isBad() || spRefMPs.count(vpMPs[j])){
+                continue;
+            }
+            totalpcs ++;
+        }
+        for (set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+        {
+            if((*sit)->isBad()){
+                continue;
+            }
+            totalpcs ++;
+        }
+    }
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << std::setprecision(9);
+    f << std::string("# .PCD v.6 - Point Cloud Data file format\n");
+	f << std::string("FIELDS x y z rgb\n");
+	f << std::string("SIZE 4 4 4 4\n");
+	f << std::string("TYPE F F F F\n");
+	f << std::string("COUNT 1 1 1 1\n");
+	f << std::string("WIDTH ") << totalpcs << std::string("\n");
+	f << std::string("HEIGHT 1\n");
+	f << std::string("#VIEWPOINT 0 0 0 1 0 0 0\n");
+	f << std::string("POINTS ") << totalpcs << std::string("\n");
+	f << std::string("DATA ascii\n");
+
+    for (size_t i = 0; i < mpAtlas->CountMaps(); i++)
+    {
+        Map* pActiveMap = vpAllMaps[i];
+        if(!pActiveMap) {
+            cout << endl << "There is no active map (pActiveMap is null)" << endl;
+            return;
+        }
+
+        // Vectors containing pointers to MapPoint objects contained in the maps
+        // Vector of pointers for Map Points -- vpMPs
+        // Vector of pointers for Reference Map Points -- vpRefMPs
+        // TODO figure out the difference between Reference Map Points and normal Map Points
+        const vector<MapPoint*> &vpMPs = pActiveMap->GetAllMapPoints();
+        const vector<MapPoint*> &vpRefMPs = pActiveMap->GetReferenceMapPoints();
+
+        if(vpMPs.empty()){
+            cout << endl << "Vector of map points vpMPs is empty!" << endl;
+            return;
+        }
+
+        // Use a set for fast lookup of reference frames
+        set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+
+        // TODO figure out if we need to consider whether the presence of IMU
+        // requires some transforms/exceptions
+
+        // Iterate over map points, skip "bad" ones and reference map points
+        for (size_t j=0, iend=vpMPs.size(); j<iend;j++)
+        {
+            if (vpMPs[j]->isBad() || spRefMPs.count(vpMPs[j])){
+                continue;
+            }
+
+            Eigen::Matrix<float,3,1> pos = vpMPs[j]->GetWorldPos();
+            cv::Vec3b colour = vpMPs[j]->rawIntensity;
+            float rgb;
+            unsigned char b[] = {colour[0], colour[1], colour[2], 0};
+            memcpy(&rgb, &b, sizeof(rgb));
+
+            f << pos(0) << " " << pos(1) << " " << pos(2) << " " << rgb << endl;
+        }
+
+        // Iterate over reference map points, skip if bad
+        for (set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+        {
+            if((*sit)->isBad()){
+                continue;
+            }
+
+            Eigen::Matrix<float,3,1> pos = (*sit)->GetWorldPos();
+            cv::Vec3b colour = (*sit)->rawIntensity;
+            float rgb;
+            unsigned char b[] = {colour[0], colour[1], colour[2], 0};
+            memcpy(&rgb, &b, sizeof(rgb));
+
+            f << pos(0) << " " << pos(1) << " " << pos(2) << " " << rgb << endl;
+        }
+    }
+    f.close();
+}
+
+void System::SavePCColmap(const string &filename){
+    // Code is based on MapDrawer::DrawMapPoints()
+    cout << endl << "Saving map point coordinates to " << filename << " ..." << endl;
+    cout << endl << "Number of maps is: " << mpAtlas->CountMaps() << endl;
+
+    vector<Map*> vpAllMaps = mpAtlas->GetAllMaps();
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << std::setprecision(6);
+
+    for (size_t i = 0; i < mpAtlas->CountMaps(); i++)
+    {
+        Map* pActiveMap = vpAllMaps[i];
+        if(!pActiveMap) {
+            cout << endl << "There is no active map (pActiveMap is null)" << endl;
+            return;
+        }
+
+        // Vectors containing pointers to MapPoint objects contained in the maps
+        // Vector of pointers for Map Points -- vpMPs
+        // Vector of pointers for Reference Map Points -- vpRefMPs
+        // TODO figure out the difference between Reference Map Points and normal Map Points
+        const vector<MapPoint*> &vpMPs = pActiveMap->GetAllMapPoints();
+        const vector<MapPoint*> &vpRefMPs = pActiveMap->GetReferenceMapPoints();
+
+        if(vpMPs.empty()){
+            cout << endl << "Vector of map points vpMPs is empty!" << endl;
+            return;
+        }
+
+        // Use a set for fast lookup of reference frames
+        set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+
+        // TODO figure out if we need to consider whether the presence of IMU
+        // requires some transforms/exceptions
+
+        int count = 0;
+        // Iterate over map points, skip "bad" ones and reference map points
+        for (size_t j=0, iend=vpMPs.size(); j<iend;j++)
+        {
+            if (vpMPs[j]->isBad() || spRefMPs.count(vpMPs[j])){
+                continue;
+            }
+
+            count++;
+            Eigen::Matrix<float,3,1> pos = vpMPs[j]->GetWorldPos();
+            cv::Vec3b colour = vpMPs[j]->rawIntensity;
+
+            f << count << " " << pos(0) << " " << -pos(1) << " " << -pos(2) << 
+		    " " << +colour[2] << " " << +colour[1] << " " << +colour[0] << " -1 0 0" << "\n";
+        }
+
+        // Iterate over reference map points, skip if bad
+        for (set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
+        {
+            if((*sit)->isBad()){
+                continue;
+            }
+
+            count++;
+            Eigen::Matrix<float,3,1> pos = (*sit)->GetWorldPos();
+            cv::Vec3b colour = (*sit)->rawIntensity;
+
+            f << count << " " << pos(0) << " " << -pos(1) << " " << -pos(2) << 
+		    " " << +colour[2] << " " << +colour[1] << " " << +colour[0] << " -1 0 0" << "\n";
         }
     }
     f.close();

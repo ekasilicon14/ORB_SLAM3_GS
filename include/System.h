@@ -154,9 +154,14 @@ public:
 
     void SaveTrajectoryEuRoC(const string &filename);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename);
+    void SaveKeyFrameTrajectoryColmap(const string &filename);
+    void SaveTrajectoryComap(const string &filename);
 
     void SaveTrajectoryEuRoC(const string &filename, Map* pMap);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename, Map* pMap);
+
+    void SavePC(const string &filename);
+    void SavePCColmap(const string &filename);
 
     // Save data used for initialization debug
     void SaveDebugData(const int &iniIdx);

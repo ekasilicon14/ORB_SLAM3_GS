@@ -144,6 +144,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
 add_executable(rgbd_tum
         Examples/RGB-D/rgbd_tum.cc)
 target_link_libraries(rgbd_tum ${PROJECT_NAME})
+add_executable(rgbd_changesim
+        Examples/RGB-D/changesim.cc)
+        target_link_libraries(rgbd_changesim ${PROJECT_NAME})
 
 if(realsense2_FOUND)
     add_executable(rgbd_realsense_D435i
@@ -204,6 +207,9 @@ target_link_libraries(mono_euroc ${PROJECT_NAME})
 add_executable(mono_tum_vi
         Examples/Monocular/mono_tum_vi.cc)
 target_link_libraries(mono_tum_vi ${PROJECT_NAME})
+add_executable(mono_replica
+        Examples/Monocular/replica.cc)
+        target_link_libraries(mono_replica ${PROJECT_NAME})
 
 if(realsense2_FOUND)
     add_executable(mono_realsense_t265

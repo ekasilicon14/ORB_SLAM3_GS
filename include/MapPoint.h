@@ -107,9 +107,9 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     MapPoint();
 
-    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap);
+    MapPoint(const Eigen::Vector3f &Pos, const cv::Vec3b &Intensity, KeyFrame* pRefKF, Map* pMap);
     MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap);
-    MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
+    MapPoint(const Eigen::Vector3f &Pos, const cv::Vec3b &Intensity, Map* pMap, Frame* pFrame, const int &idxF);
 
     void SetWorldPos(const Eigen::Vector3f &Pos);
     Eigen::Vector3f GetWorldPos();
@@ -206,6 +206,8 @@ public:
     static std::mutex mGlobalMutex;
 
     unsigned int mnOriginMapId;
+
+    cv::Vec3b rawIntensity;
 
 protected:    
 

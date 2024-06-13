@@ -691,7 +691,10 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
-            MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
+            cv::Vec3b intensity;
+            Eigen::Vector2f reproj2d;
+            mpCurrentKeyFrame->ReprojectStereo(x3D,reproj2d,intensity);
+            MapPoint* pMP = new MapPoint(x3D, intensity, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
             if (bPointStereo)
                 countStereo++;
             

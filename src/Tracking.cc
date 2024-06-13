@@ -1455,9 +1455,13 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
 {
     //cout << "GrabImageStereo" << endl;
 
+    cv::Mat imRectLeftRaw = imRectLeft.clone();
+    cv::Mat imRectRightRaw = imRectRight.clone();
     mImGray = imRectLeft;
+    mImRaw = imRectLeftRaw;
     cv::Mat imGrayRight = imRectRight;
     mImRight = imRectRight;
+    mImRawRight = imRectRightRaw;
 
     if(mImGray.channels()==3)
     {
@@ -1466,6 +1470,8 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
         {
             cvtColor(mImGray,mImGray,cv::COLOR_RGB2GRAY);
             cvtColor(imGrayRight,imGrayRight,cv::COLOR_RGB2GRAY);
+            cvtColor(mImRaw,mImRaw,cv::COLOR_RGB2BGR);
+            cvtColor(mImRawRight,mImRawRight,cv::COLOR_RGB2BGR);
         }
         else
         {
@@ -1480,24 +1486,28 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
         {
             cvtColor(mImGray,mImGray,cv::COLOR_RGBA2GRAY);
             cvtColor(imGrayRight,imGrayRight,cv::COLOR_RGBA2GRAY);
+            cvtColor(mImRaw,mImRaw,cv::COLOR_RGBA2BGR);
+            cvtColor(mImRawRight,mImRawRight,cv::COLOR_RGBA2BGR);
         }
         else
         {
             cvtColor(mImGray,mImGray,cv::COLOR_BGRA2GRAY);
             cvtColor(imGrayRight,imGrayRight,cv::COLOR_BGRA2GRAY);
+            cvtColor(mImRaw,mImRaw,cv::COLOR_BGRA2BGR);
+            cvtColor(mImRawRight,mImRawRight,cv::COLOR_BGRA2BGR);
         }
     }
 
     //cout << "Incoming frame creation" << endl;
 
     if (mSensor == System::STEREO && !mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imRectLeftRaw,imGrayRight,imRectRightRaw,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if(mSensor == System::STEREO && mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr);
+        mCurrentFrame = Frame(mImGray,imRectLeftRaw,imGrayRight,imRectRightRaw,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr);
     else if(mSensor == System::IMU_STEREO && !mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imRectLeftRaw,imGrayRight,imRectRightRaw,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
     else if(mSensor == System::IMU_STEREO && mpCamera2)
-        mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imRectLeftRaw,imGrayRight,imRectRightRaw,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
 
     //cout << "Incoming frame ended" << endl;
 
@@ -1519,31 +1529,39 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
 
 Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, string filename)
 {
+    cv::Mat imRGBRaw = imRGB.clone();
+    mImRaw = imRGBRaw;
     mImGray = imRGB;
     cv::Mat imDepth = imD;
 
     if(mImGray.channels()==3)
     {
-        if(mbRGB)
+        if(mbRGB){
             cvtColor(mImGray,mImGray,cv::COLOR_RGB2GRAY);
+            cvtColor(mImRaw,mImRaw,cv::COLOR_RGB2BGR);
+        }
         else
             cvtColor(mImGray,mImGray,cv::COLOR_BGR2GRAY);
     }
     else if(mImGray.channels()==4)
     {
-        if(mbRGB)
+        if(mbRGB){
             cvtColor(mImGray,mImGray,cv::COLOR_RGBA2GRAY);
-        else
+            cvtColor(mImRaw,mImRaw,cv::COLOR_RGBA2BGR);
+        }
+        else{
             cvtColor(mImGray,mImGray,cv::COLOR_BGRA2GRAY);
+            cvtColor(mImRaw,mImRaw,cv::COLOR_BGRA2BGR);
+        }
     }
 
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
     if (mSensor == System::RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
+        mCurrentFrame = Frame(mImGray,imRGBRaw,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera);
     else if(mSensor == System::IMU_RGBD)
-        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
+        mCurrentFrame = Frame(mImGray,imRGBRaw,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
 
 
 
@@ -1565,37 +1583,45 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, co
 
 Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename)
 {
+    cv::Mat imRaw = im.clone();
+    mImRaw = imRaw;
     mImGray = im;
     if(mImGray.channels()==3)
     {
-        if(mbRGB)
+        if(mbRGB){
             cvtColor(mImGray,mImGray,cv::COLOR_RGB2GRAY);
+            cvtColor(imRaw,imRaw,cv::COLOR_RGB2BGR);
+        }
         else
             cvtColor(mImGray,mImGray,cv::COLOR_BGR2GRAY);
     }
     else if(mImGray.channels()==4)
     {
-        if(mbRGB)
+        if(mbRGB){
             cvtColor(mImGray,mImGray,cv::COLOR_RGBA2GRAY);
-        else
+            cvtColor(imRaw,imRaw,cv::COLOR_RGBA2BGR);
+        }
+        else{
             cvtColor(mImGray,mImGray,cv::COLOR_BGRA2GRAY);
+            cvtColor(imRaw,imRaw,cv::COLOR_BGRA2BGR);
+        }
     }
 
     if (mSensor == System::MONOCULAR)
     {
         if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET ||(lastID - initID) < mMaxFrames)
-            mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
+            mCurrentFrame = Frame(mImGray,imRaw,timestamp,mpIniORBextractor,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
         else
-            mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
+            mCurrentFrame = Frame(mImGray,imRaw,timestamp,mpORBextractorLeft,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
     }
     else if(mSensor == System::IMU_MONOCULAR)
     {
         if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
         {
-            mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
+            mCurrentFrame = Frame(mImGray,imRaw,timestamp,mpIniORBextractor,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
         }
         else
-            mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
+            mCurrentFrame = Frame(mImGray,imRaw,timestamp,mpORBextractorLeft,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
     }
 
     if (mState==NO_IMAGES_YET)
@@ -2304,6 +2330,8 @@ void Tracking::Track()
         {
             Sophus::SE3f Tcr_ = mCurrentFrame.GetPose() * mCurrentFrame.mpReferenceKF->GetPoseInverse();
             mlRelativeFramePoses.push_back(Tcr_);
+            mlRelativeFrameNames.push_back(mCurrentFrame.mNameFile);
+            mlRelativeFrameID.push_back(mCurrentFrame.mnId);
             mlpReferences.push_back(mCurrentFrame.mpReferenceKF);
             mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
             mlbLost.push_back(mState==LOST);
@@ -2312,6 +2340,8 @@ void Tracking::Track()
         {
             // This can happen if tracking is lost
             mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
+            mlRelativeFrameNames.push_back(mlRelativeFrameNames.back());
+            mlRelativeFrameID.push_back(mlRelativeFrameID.back());
             mlpReferences.push_back(mlpReferences.back());
             mlFrameTimes.push_back(mlFrameTimes.back());
             mlbLost.push_back(mState==LOST);
@@ -2383,8 +2413,9 @@ void Tracking::StereoInitialization()
                 if(z>0)
                 {
                     Eigen::Vector3f x3D;
-                    mCurrentFrame.UnprojectStereo(i, x3D);
-                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    cv::Vec3b intensity;
+                    mCurrentFrame.UnprojectStereo(i, x3D, intensity);
+                    MapPoint* pNewMP = new MapPoint(x3D, intensity, pKFini, mpAtlas->GetCurrentMap());
                     pNewMP->AddObservation(pKFini,i);
                     pKFini->AddMapPoint(pNewMP,i);
                     pNewMP->ComputeDistinctiveDescriptors();
@@ -2400,7 +2431,10 @@ void Tracking::StereoInitialization()
                 if(rightIndex != -1){
                     Eigen::Vector3f x3D = mCurrentFrame.mvStereo3Dpoints[i];
 
-                    MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    cv::Vec3b intensity;
+                    Eigen::Vector2f reproj2d;
+                    pKFini->ReprojectStereo(x3D,reproj2d,intensity);
+                    MapPoint* pNewMP = new MapPoint(x3D, intensity, pKFini, mpAtlas->GetCurrentMap());
 
                     pNewMP->AddObservation(pKFini,i);
                     pNewMP->AddObservation(pKFini,rightIndex + mCurrentFrame.Nleft);
@@ -2548,7 +2582,10 @@ void Tracking::CreateInitialMapMonocular()
         //Create MapPoint.
         Eigen::Vector3f worldPos;
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
-        MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap());
+        cv::Vec3b intensity;
+        Eigen::Vector2f reproj2d;
+        pKFcur->ReprojectStereo(worldPos,reproj2d,intensity);
+        MapPoint* pMP = new MapPoint(worldPos,intensity,pKFcur,mpAtlas->GetCurrentMap());
 
         pKFini->AddMapPoint(pMP,i);
         pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
@@ -2826,15 +2863,18 @@ void Tracking::UpdateLastFrame()
         if(bCreateNew)
         {
             Eigen::Vector3f x3D;
+            cv::Vec3b intensity;
 
             if(mLastFrame.Nleft == -1){
-                mLastFrame.UnprojectStereo(i, x3D);
+                mLastFrame.UnprojectStereo(i, x3D,intensity);
             }
             else{
+                Eigen::Vector2f reproj2d;
                 x3D = mLastFrame.UnprojectStereoFishEye(i);
+                pRef->ReprojectStereo(x3D,reproj2d,intensity);
             }
 
-            MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,i);
+            MapPoint* pNewMP = new MapPoint(x3D,intensity,mpAtlas->GetCurrentMap(),&mLastFrame,i);
             mLastFrame.mvpMapPoints[i]=pNewMP;
 
             mlpTemporalPoints.push_back(pNewMP);
@@ -3290,15 +3330,18 @@ void Tracking::CreateNewKeyFrame()
                 if(bCreateNew)
                 {
                     Eigen::Vector3f x3D;
+                    cv::Vec3b intensity;
 
                     if(mCurrentFrame.Nleft == -1){
-                        mCurrentFrame.UnprojectStereo(i, x3D);
+                        mCurrentFrame.UnprojectStereo(i, x3D, intensity);
                     }
                     else{
+                        Eigen::Vector2f reproj2d;
                         x3D = mCurrentFrame.UnprojectStereoFishEye(i);
+                        pKF->ReprojectStereo(x3D,reproj2d,intensity);
                     }
 
-                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap());
+                    MapPoint* pNewMP = new MapPoint(x3D,intensity,pKF,mpAtlas->GetCurrentMap());
                     pNewMP->AddObservation(pKF,i);
 
                     //Check if it is a stereo observation in order to not
@@ -3821,6 +3864,8 @@ void Tracking::Reset(bool bLocMap)
     mbSetInit=false;
 
     mlRelativeFramePoses.clear();
+    mlRelativeFrameNames.clear();
+    mlRelativeFrameID.clear();
     mlpReferences.clear();
     mlFrameTimes.clear();
     mlbLost.clear();

@@ -59,7 +59,8 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb/2), mpMap(pMap), mbCurrentPlaceRecognition(false), mNameFile(F.mNameFile), mnMergeCorrectedForKF(0),
     mpCamera(F.mpCamera), mpCamera2(F.mpCamera2),
     mvLeftToRightMatch(F.mvLeftToRightMatch),mvRightToLeftMatch(F.mvRightToLeftMatch), mTlr(F.GetRelativePoseTlr()),
-    mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright), mTrl(F.GetRelativePoseTrl()), mnNumberOfOpt(0), mbHasVelocity(false)
+    mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright), mTrl(F.GetRelativePoseTrl()), mnNumberOfOpt(0), mbHasVelocity(false),
+    RawFrame(F.rawLeft)
 {
     mnId=nNextId++;
 
@@ -769,6 +770,44 @@ bool KeyFrame::UnprojectStereo(int i, Eigen::Vector3f &x3D)
     }
     else
         return false;
+}
+
+bool KeyFrame::ReprojectStereo(Eigen::Vector3f &x3D, Eigen::Vector2f &x2D, cv::Vec3b &intensity)
+{
+    unique_lock<mutex> lock(mMutexPose);
+    Eigen::Vector3f x3Dc = mRcw * (x3D - mTcw.translation());
+
+    const float x = x3Dc[0];
+    const float y = x3Dc[1];
+    const float z = x3Dc[2];
+    float u = (x/z)*fx+cx;
+    float v = (y/z)*fy+cy;
+    Eigen::Vector2f x2Dc(u, v);
+    x2D = x2Dc;
+
+    if((u>=0 && u<RawFrame.cols && v>=0 && v<RawFrame.rows)){
+        if(RawFrame.channels()>=3){
+            intensity = RawFrame.at<cv::Vec3b>(cv::Point(u, v));
+        } else{
+            unsigned char colour = RawFrame.at<unsigned char>(cv::Point(u, v));
+            intensity = cv::Vec3b(colour,colour,colour);
+        }
+        return true;
+    } else {
+        if(u<0) u = 0;
+        if(u>=RawFrame.cols) u = RawFrame.rows-1;
+        if(v<0) v = 0;
+        if(v>=RawFrame.rows) v = RawFrame.rows-1;
+
+        if(RawFrame.channels()>=3){
+            intensity = RawFrame.at<cv::Vec3b>(cv::Point(u, v));
+        } else{
+            unsigned char colour = RawFrame.at<unsigned char>(cv::Point(u, v));
+            intensity = cv::Vec3b(colour,colour,colour);
+        } 
+
+        return false;
+    }
 }
 
 float KeyFrame::ComputeSceneMedianDepth(const int q)

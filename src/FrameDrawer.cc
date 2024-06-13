@@ -370,14 +370,14 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 void FrameDrawer::Update(Tracking *pTracker)
 {
     unique_lock<mutex> lock(mMutex);
-    pTracker->mImGray.copyTo(mIm);
+    pTracker->mImRaw.copyTo(mIm);
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
     mThDepth = pTracker->mCurrentFrame.mThDepth;
     mvCurrentDepth = pTracker->mCurrentFrame.mvDepth;
 
     if(both){
         mvCurrentKeysRight = pTracker->mCurrentFrame.mvKeysRight;
-        pTracker->mImRight.copyTo(mImRight);
+        pTracker->mImRawRight.copyTo(mImRight);
         N = mvCurrentKeys.size() + mvCurrentKeysRight.size();
     }
     else{

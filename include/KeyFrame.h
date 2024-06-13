@@ -260,6 +260,7 @@ public:
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const bool bRight = false) const;
     bool UnprojectStereo(int i, Eigen::Vector3f &x3D);
+    bool ReprojectStereo(Eigen::Vector3f &x3D, Eigen::Vector2f &x2D, cv::Vec3b &intensity);
 
     // Image
     bool IsInImage(const float &x, const float &y) const;
@@ -425,6 +426,8 @@ public:
     //cv::Mat mHessianPose;
 
     // The following variables need to be accessed trough a mutex to be thread safe.
+
+    cv::Mat RawFrame;
 protected:
     // sophus poses
     Sophus::SE3<float> mTcw;
